@@ -56,7 +56,45 @@ audio.setVolume(app.volume);
 // ---------------------------------------------------------------- stage
 // phones and narrow windows: the stage takes the full width and the panel floats over it, folded
 const narrow = () => window.innerWidth < 900;
+// touch screens in portrait get the full-screen layout: the scene fills the screen and the controls float at the
+// bottom (?phone=1 forces it, for testing on a computer)
+const COARSE = window.matchMedia('(pointer: coarse)');
+const phone = () => (COARSE.matches || params.has('phone')) && window.innerWidth < 900 && window.innerHeight > window.innerWidth;
+let phoneMode = false;
+// the diorama sits a little high, clear of the control bar
+const PHONE = { fill: 0.92, fillY: 0.62, lift: 0.08 };
+function fitPhone() {
+  const vw = window.innerWidth, vh = window.innerHeight, dpr = Math.min(3, window.devicePixelRatio || 1);
+  // about one art pixel per CSS pixel: the same detail as the square and portrait exports
+  const ps = Math.max(2, Math.round(dpr));
+  const w = Math.round((vw * dpr) / ps) * ps, h = Math.round((vh * dpr) / ps) * ps;
+  if (!phoneMode) {
+    phoneMode = true;
+    document.body.classList.add('phone');
+  }
+  Object.assign(stageEl.style, { width: `${vw}px`, height: `${vh}px`, marginRight: '0' });
+  if (engine.out.w !== w || engine.out.h !== h) engine.setOutput(w, h);
+  if (engine.look.pixelSize !== ps) {
+    engine.look.pixelSize = ps;
+    engine.applyLook();
+  }
+  if (world) {
+    resetView(store.views[app.scene]);
+    fitView(PHONE, 'phone');
+  }
+  fitHud();
+}
+function leavePhone() {
+  phoneMode = false;
+  document.body.classList.remove('phone', 'menu-open');
+  engine.setOutput(...STAGES[app.stage]);
+  engine.look.pixelSize = { ...defaultLook(), ...(def?.look || {}), ...(store.looks[app.scene] || {}) }.pixelSize;
+  engine.applyLook();
+  if (def) resetView(store.views[app.scene]);
+}
 function fitStage() {
+  if (phone()) return fitPhone();
+  if (phoneMode) leavePhone();
   const [w, h] = STAGES[app.stage];
   const panelW = app.panel && gui && !narrow() ? 300 : 0;
   const pad = narrow() ? 12 : 40;
@@ -71,6 +109,10 @@ function fitStage() {
 function fitHud() {
   const hud = document.getElementById('hud');
   if (!hud) return;
+  if (phoneMode) {
+    hud.style.transform = 'none';
+    return;
+  }
   hud.style.transform = 'translateX(-50%)';
   const k = Math.min(1, (stageEl.clientWidth * 0.94) / Math.max(1, hud.scrollWidth));
   hud.style.transformOrigin = '50% 100%';
@@ -137,6 +179,7 @@ const lookChanged = () => {
   save();
 };
 const viewChanged = () => {
+  if (phoneMode) return;
   const { azimuth, elevation, size } = engine.view;
   store.views[app.scene] = { azimuth, elevation, size };
   save();
@@ -252,10 +295,12 @@ const FORMATS = {
   '1x1': { stage: '1:1 · 1080×1080', pixelSize: 3, fill: 0.88, fillY: 0.86, lift: 0.015 },
   '4x5': { stage: '4:5 · 1080×1350', pixelSize: 3, fill: 0.88, fillY: 0.8, lift: 0.01 },
 };
-// per-scene overrides: { fill, fillY, lift, x: [left, right], y: [bottom, top] } with x, y as shares of the 16:9 frame (0 = centre)
+// per-scene overrides: { fill, fillY, lift, x: [left, right], y: [bottom, top] } with x, y as shares of the 16:9 frame (0 = centre),
+// plus optional per-format ones under the format's key ('1x1', '4x5', 'phone')
 const FIT = {
-  // the cloud sea runs off every edge: frame the summit and let the clouds bleed out
-  Lookout: { x: [-0.375, 0.36], y: [-0.5, 0.5], fill: 0.96 },
+  // the cloud sea runs off every edge: frame the summit and let the clouds bleed out. On a phone, crop in so the
+  // tall frame never reaches below the cloud deck
+  Lookout: { x: [-0.375, 0.36], y: [-0.5, 0.5], fill: 0.96, phone: { x: [-0.26, 0.26], fill: 1, lift: -0.06 } },
 };
 // hero moment for photos; defaults to the scene's own starting hour and weather
 const PHOTOS = {
@@ -317,8 +362,8 @@ function measureDiorama() {
 }
 
 /** Fits the camera so the diorama fills the current output (square and portrait formats). */
-function fitView(f) {
-  const b = measureDiorama(), o = FIT[app.scene] || {};
+function fitView(f, key) {
+  const b = measureDiorama(), o = { ...(FIT[app.scene] || {}), ...(FIT[app.scene]?.[key] || {}) };
   const x0 = o.x ? o.x[0] * b.frameW : b.x0, x1 = o.x ? o.x[1] * b.frameW : b.x1;
   const y0 = o.y ? o.y[0] * b.frameH : b.y0, y1 = o.y ? o.y[1] * b.frameH : b.y1;
   const aspect = engine.out.w / engine.out.h;
@@ -341,7 +386,7 @@ function applyFormat(key) {
     engine.look.pixelSize = f.pixelSize;
     engine.applyLook();
   }
-  return f.fill ? fitView(f) : null;
+  return f.fill ? fitView(f, key) : null;
 }
 
 /** Renders a scene's hero moment in a format and returns a copy of the frame. */
@@ -483,7 +528,7 @@ function buildGUI() {
   fOut.add(actions, 'copy').name('copy settings');
 
   gui.domElement.style.display = app.panel ? '' : 'none';
-  if (narrow()) gui.close();
+  if (narrow() && !document.body.classList.contains('menu-open')) gui.close();
   fitStage();
 }
 
@@ -529,6 +574,8 @@ function group(label, keys, onPick) {
 }
 const gTime = group('Time', Object.keys(TIME_PRESETS), setTime);
 const gSky = group('Sky', Object.keys(WEATHER), setWeather);
+gTime.classList.add('time');
+gSky.classList.add('sky');
 const gScene = document.createElement('div');
 gScene.className = 'group scene';
 gScene.innerHTML = `<div class="meta"><div class="label">Scene</div><div class="value"></div></div><div class="btns"></div>`;
@@ -545,6 +592,10 @@ function buildActions() {
   const acts = world?.actions || [];
   gScene.style.display = acts.length ? '' : 'none';
   gScene.querySelector('.label').textContent = def.actionsLabel || def.name || 'Scene';
+  const tab = tabs.querySelector('[data-tab=scene]');
+  tab.textContent = def.actionsLabel || def.name || 'Scene';
+  tab.style.display = acts.length ? '' : 'none';
+  if (!acts.length && hudEl.classList.contains('tab-scene')) pickTab('time');
   const btns = gScene.querySelector('.btns');
   btns.innerHTML = '';
   acts.forEach((a, i) => {
@@ -562,6 +613,33 @@ tools.innerHTML = `<button data-act="cycle" title="Let the day run"></button><bu
 hudEl.appendChild(tools);
 tools.querySelector('[data-act=cycle]').addEventListener('click', (e) => { e.stopPropagation(); toggleCycle(); });
 tools.querySelector('[data-act=sound]').addEventListener('click', (e) => { e.stopPropagation(); setSound(!app.sound); });
+// phones: tabs pick which group shows in the bar (hidden on larger screens)
+const tabs = document.createElement('div');
+tabs.className = 'tabs';
+tabs.innerHTML = '<button data-tab="time">Time</button><button data-tab="sky">Sky</button><button data-tab="scene">Scene</button>';
+hudEl.prepend(tabs);
+function pickTab(t) {
+  hudEl.classList.remove('tab-time', 'tab-sky', 'tab-scene');
+  hudEl.classList.add(`tab-${t}`);
+  tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('sel', b.dataset.tab === t));
+}
+tabs.addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  e.stopPropagation();
+  pickTab(b.dataset.tab);
+});
+pickTab('time');
+// phones: the round button in the corner opens the settings panel
+document.getElementById('menu')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const open = !document.body.classList.contains('menu-open');
+  document.body.classList.toggle('menu-open', open);
+  if (open && gui) {
+    gui.domElement.style.display = '';
+    gui.open();
+  }
+});
 function syncHudState() {
   const t = env.tween ? timeName((env.tween.from + env.tween.dist) % 24) : timeName(env.hour);
   const acts = world?.actions || [];

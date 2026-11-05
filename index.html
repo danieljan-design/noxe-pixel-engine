@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Pixel Engine · Noxe</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -66,6 +66,36 @@
   .lil-gui.root > .children { max-height:calc(100vh - 70px); overflow-y:auto; }
   /* phones: the folded panel stays clear of the brand label */
   @media (max-width: 899px) { .lil-gui.root.closed { width:150px; } }
+  /* phones in portrait: the scene fills the screen, the controls float at the bottom */
+  #menu, #hud .tabs { display:none; }
+  body.phone #stage { box-shadow:none; }
+  body.phone #brand { top:calc(10px + env(safe-area-inset-top)); left:12px; z-index:21; padding:10px 12px; border-radius:12px; color:#aab0bd;
+                      background:rgba(20,24,35,.62); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+  body.phone #menu { display:grid; place-items:center; position:fixed; right:12px; top:calc(6px + env(safe-area-inset-top)); z-index:21;
+                     width:44px; height:44px; padding:0; border-radius:22px; border:1px solid rgba(237,239,242,.16); color:var(--paper);
+                     background:rgba(20,24,35,.74); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); cursor:pointer; touch-action:manipulation; }
+  body.phone.menu-open #menu { background:var(--violet); }
+  body.phone #menu svg { width:18px; height:18px; display:block; }
+  body.phone .lil-gui.root { display:none !important; }
+  body.phone.menu-open .lil-gui.root { display:block !important; top:calc(58px + env(safe-area-inset-top)) !important; right:12px !important; width:min(300px, calc(100vw - 24px)); }
+  body.phone.menu-open .lil-gui.root > .children { max-height:calc(100vh - 280px); }
+  body.phone #hud { left:12px; right:12px; bottom:calc(14px + env(safe-area-inset-bottom)); transform:none; flex-direction:column; align-items:stretch;
+                    gap:0; padding:8px; border-radius:24px; font-size:16px; white-space:normal; background:rgba(20,24,35,.74); }
+  body.phone #hud .tabs { display:flex; gap:4px; }
+  body.phone #hud .tabs button { flex:1; width:auto; height:38px; border-radius:16px; font:600 14px/1 'Outfit', sans-serif; color:rgba(237,239,242,.6); touch-action:manipulation; }
+  body.phone #hud .tabs button.sel { background:rgba(237,239,242,.13); color:var(--paper); }
+  body.phone #hud .group, body.phone #hud .meta { display:none; }
+  body.phone #hud.tab-time .group.time, body.phone #hud.tab-sky .group.sky, body.phone #hud.tab-scene .group.scene { display:flex; justify-content:center; }
+  body.phone #hud .btns { gap:10px; padding:10px 0 4px; }
+  body.phone #hud .btns button { width:46px; height:46px; border-radius:15px; touch-action:manipulation; }
+  body.phone #hud .btns button svg { width:20px; height:20px; }
+  body.phone #hud .tools { position:absolute; right:2px; bottom:calc(100% + 12px); flex-direction:column; gap:10px; padding:0; border:0; }
+  body.phone #hud .tools button { width:44px; height:44px; border-radius:22px; border:1px solid rgba(237,239,242,.16); color:var(--paper);
+                                  background:rgba(20,24,35,.74); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); touch-action:manipulation; }
+  body.phone #hud .tools button.on { background:var(--violet); }
+  body.phone #hud .tools button svg { width:18px; height:18px; }
+  body.phone #toast { left:12px; right:12px; max-width:none; bottom:calc(200px + env(safe-area-inset-bottom)); }
+  body.phone #rec { top:calc(64px + env(safe-area-inset-top)); left:12px; }
 </style>
 <script type="importmap">
 { "imports": {
@@ -78,6 +108,7 @@
 <body>
 <div id="rec"><span>0.0s</span></div>
 <div id="brand"><b>NOXE</b>PIXEL ENGINE</div>
+<button id="menu" aria-label="Settings"><svg viewBox="0 0 9 9" shape-rendering="crispEdges" aria-hidden="true"><path d="M0 1h9v1h-9zM0 4h9v1h-9zM0 7h9v1h-9zM2 0h1v3h-1zM6 3h1v3h-1zM3 6h1v3h-1z" fill="currentColor"/></svg></button>
 <div id="stage">
   <canvas id="c"></canvas>
   <div id="hud"></div>

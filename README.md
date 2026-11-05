@@ -62,6 +62,8 @@ Then open http://localhost:5184. Any static file server works. `tools/serve.py` 
 
 Drag to turn the camera, scroll to zoom. Open a scene directly with `?scene=Name`, and add `&clean=1` to ignore saved settings.
 
+On a phone held upright the scene fills the screen. Tabs at the bottom switch between time, sky and the scene's own buttons, the round buttons play the day and turn on sound, and the button in the top corner opens the settings.
+
 ## Scenes
 
 | Scene | Opens on | Buttons (Q W E) |
