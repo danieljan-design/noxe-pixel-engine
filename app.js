@@ -252,20 +252,43 @@ function replay(e) {
   else if (e.kind === 'hour') env.goToHour(e.arg[0], e.arg[1]);
 }
 /** Renders a clip offline at a perfect 60 fps from a fresh copy of the scene, with sound, as a standard MP4. */
+// Exports for X draw at twice the size with twice the pixel size: the same art, pixel for pixel, as a 4K file.
+// X's 1080p copy of it is an exact half, so that copy is the original frame again with every art pixel on
+// whole pixels (square and 4:5 also stay whole in X's 720p copy).
+const X_SCALE = 2;
+function scaleOutput(k) {
+  const prev = { w: engine.out.w, h: engine.out.h, ps: engine.look.pixelSize };
+  if (k !== 1) {
+    engine.setOutput(prev.w * k, prev.h * k);
+    engine.look.pixelSize = prev.ps * k;
+    engine.applyLook();
+  }
+  return () => {
+    if (k === 1) return;
+    engine.setOutput(prev.w, prev.h);
+    engine.look.pixelSize = prev.ps;
+    engine.applyLook();
+  };
+}
+
 async function exportClip({ seconds, start, events, name, keep = false, setup }) {
   if (exporting) return null;
   exporting = true;
   document.body.classList.add('recording');
   recEl.classList.add('on');
   const label = recEl.querySelector('span');
+  let restore = null;
   try {
     loadScene(app.scene);
     setup?.();
+    restore = scaleOutput(X_SCALE);
     env.setHour(start.hour);
     env.setWeather(start.weather, true);
     env.cycle = !!start.cycle;
     const blob = await renderClip({
       canvas, seconds, fps: 60,
+      // ~18 Mbps per 1080p worth of pixels, up to 50: X re-encodes everything, so start it from a near-clean file
+      bitrate: Math.min(50e6, (18e6 * canvas.width * canvas.height) / (1920 * 1080)),
       audio: app.clipSound ? audio : null,
       script: events.map((e) => ({ at: e.at, run: () => replay(e) })),
       step: (dt) => { env.update(dt); world?.update?.(env.time, dt, env); audio.update(dt, env); },
@@ -273,13 +296,14 @@ async function exportClip({ seconds, start, events, name, keep = false, setup })
       onProgress: (p) => { label.textContent = `rendering ${Math.round(p * 100)}%`; },
     });
     if (!keep) download(blob, `${name}.mp4`);
-    toast(`Clip ready: ${seconds.toFixed(1)}s at 60 fps, MP4 for X`, 3500);
+    toast(`Clip ready: ${seconds.toFixed(1)}s, ${canvas.width}×${canvas.height} at 60 fps, MP4 for X`, 3500);
     return blob;
   } catch (e) {
     console.error(e);
     toast('Render failed: ' + e.message, 5000);
     return null;
   } finally {
+    restore?.();
     exporting = false;
     document.body.classList.remove('recording');
     recEl.classList.remove('on');
@@ -390,9 +414,10 @@ function applyFormat(key) {
 }
 
 /** Renders a scene's hero moment in a format and returns a copy of the frame. */
-function heroPhoto(name, key, adv) {
+function heroPhoto(name, key, adv, scale = 1) {
   loadScene(name);
   const fit = applyFormat(key);
+  const restore = scaleOutput(scale);
   const p = PHOTOS[name] || {};
   env.setHour(p.hour ?? def.env?.hour ?? 10);
   env.setWeather(p.weather ?? def.env?.weather ?? 'clear', true);
@@ -402,6 +427,7 @@ function heroPhoto(name, key, adv) {
   c.width = canvas.width;
   c.height = canvas.height;
   c.getContext('2d').drawImage(canvas, 0, 0);
+  restore();
   return { canvas: c, fit };
 }
 
@@ -776,10 +802,10 @@ window.__pixel = {
   fitOverrides: FIT,
   photos: PHOTOS,
   format: (key) => applyFormat(key),
-  hero: (name, key, adv) => heroPhoto(name, key, adv),
+  hero: (name, key, adv, scale) => heroPhoto(name, key, adv, scale),
   /** Saves a scene's hero photo in a format ('16x9', '1x1', '4x5') as exports/<file>. */
   async photo(name, key, file) {
-    const { canvas: c, fit } = heroPhoto(name, key);
+    const { canvas: c, fit } = heroPhoto(name, key, undefined, X_SCALE);
     return { status: await this._post(file, c), fit };
   },
   // X kit: per scene, its demo clip as 16:9 and 1:1 MP4 and its hero moment as 4:5 and 1:1 PNG, posted to

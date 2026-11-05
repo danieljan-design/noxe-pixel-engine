@@ -94,15 +94,30 @@ export function muxMp4(video, audio) {
   return new Blob([ftyp, moov, mdatHeader, ...video.samples.map((s) => s.data), ...(audio ? audio.samples.map((s) => s.data) : [])], { type: 'video/mp4' });
 }
 
+// H.264 High profile at the lowest level that fits the frame size and rate: 4K at 60fps needs level 5.2,
+// 1080p 4.2. [level_idc, max frame size in macroblocks, max macroblocks per second]
+const LEVELS = [[0x28, 8192, 245760], [0x2a, 8704, 522240], [0x32, 22080, 589824], [0x33, 36864, 983040], [0x34, 36864, 2073600]];
 async function pickCodec(width, height, fps, bitrate) {
-  for (const codec of ['avc1.64002a', 'avc1.640028', 'avc1.4d002a', 'avc1.42e02a']) {
-    const cfg = { codec, width, height, bitrate, framerate: fps, avc: { format: 'avc' }, latencyMode: 'realtime' };
-    try {
-      if ((await VideoEncoder.isConfigSupported(cfg)).supported) return cfg;
-    } catch (e) { /* try the next */ }
+  const mbs = Math.ceil(width / 16) * Math.ceil(height / 16);
+  const codecs = LEVELS.filter(([, fs, rate]) => mbs <= fs && mbs * fps <= rate).map(([l]) => `avc1.6400${l.toString(16)}`);
+  for (const hardwareAcceleration of ['no-preference', 'prefer-software']) {
+    for (const codec of codecs) {
+      // quality, not realtime: offline renders can let the encoder take its time and spend bits on detail
+      const cfg = { codec, width, height, bitrate, bitrateMode: 'variable', framerate: fps, latencyMode: 'quality', hardwareAcceleration, avc: { format: 'avc' } };
+      try {
+        if ((await VideoEncoder.isConfigSupported(cfg)).supported) return cfg;
+      } catch (e) { /* try the next */ }
+    }
   }
-  throw new Error('This browser cannot encode H.264 video (use Chrome)');
+  throw new Error(`This browser cannot encode ${width}×${height} H.264 at ${fps}fps (use Chrome)`);
 }
+
+// Yield to the browser without timers: background tabs throttle setTimeout to once a second (or a minute),
+// which would stall a render if you switch tabs. Channel messages are not throttled.
+const channel = new MessageChannel();
+const waiting = [];
+channel.port1.onmessage = () => waiting.shift()?.();
+const yieldTask = () => new Promise((r) => { waiting.push(r); channel.port2.postMessage(0); });
 
 /**
  * Render `seconds` of the current scene to an MP4 Blob.
@@ -153,10 +168,10 @@ export async function renderClip({ canvas, step, render, audio = null, seconds =
       const frame = new VideoFrame(copy, { timestamp: Math.round(t * 1e6), duration: Math.round(dt * 1e6) });
       venc.encode(frame, { keyFrame: i % (fps * 2) === 0 });
       frame.close();
-      while (venc.encodeQueueSize > 6) await new Promise((r) => setTimeout(r, 1));
+      while (venc.encodeQueueSize > 6 && !failure) await yieldTask();
       if (i % 15 === 0) {
         onProgress?.(i / frames * (audio ? 0.85 : 1));
-        await new Promise((r) => setTimeout(r, 0));
+        await yieldTask();
       }
     }
     await venc.flush();

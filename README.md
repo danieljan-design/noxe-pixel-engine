@@ -30,7 +30,7 @@ Everything is code. The scenes are modelled procedurally with three.js and every
 - **Weather.** Clear, cloudy, rain, storm with lightning, snow that settles on everything, and fog, all blending into each other over a few seconds.
 - **Reflections.** Planar mirror reflections on lakes, harbours and wet streets.
 - **Sound.** Wind, rain (outdoors, or on the roof for indoor scenes), water, birds, crickets and thunder, plus each scene's own sounds: a streetcar bell, a ferry horn, a loon, a bear's roar.
-- **Clip export.** Renders offline at a locked 60 fps with the sound in sync and writes a standard MP4 (H.264 + AAC) that X and other platforms accept as is. 16:9, square and portrait.
+- **Clip export.** Renders offline at a locked 60 fps with the sound in sync and writes a standard MP4 (H.264 + AAC) that X and other platforms accept as is. 16:9, square and portrait, at twice the output size (4K for 16:9).
 
 ## Run it
 
@@ -84,8 +84,8 @@ All clips are standard MP4 files (H.264 + AAC, index first) and land in your Dow
 - **Demo clip (G)** renders the scene's storyboard, its signature moment, offline at 60 fps with sound. No dropped frames, however slow the machine.
 - **Take (T)**: press T, play the scene with the buttons and keys, press T again. The take is re-rendered exactly, offline.
 - **Live record (R)** records the canvas in real time. **Record with panel** captures the stage with the on-stage controls and tab audio. Chrome asks which tab to share: pick this one.
-- **Output size** is under Scene > output: 16:9 (1920×1080), 4:5 (1080×1350), 1:1 (1080×1080) and 9:16.
-- **Social kit.** With the save endpoint running (`python3 tools/save-endpoint.py`), `await __pixel.kit()` in the browser console renders every scene's demo clip as 16:9 and 1:1 MP4 and a hero photo as 4:5 and 1:1 PNG into `exports/`. Square and portrait frames render at pixel size 3 with the camera fitted to the diorama.
+- **Output size** is under Scene > output: 16:9 (1920×1080), 4:5 (1080×1350), 1:1 (1080×1080) and 9:16. Clips render at twice that size with twice the pixel size (16:9 comes out 3840×2160): the same art pixel for pixel, and X's 1080p copy of the file is an exact half, so every art pixel still lands on whole pixels there.
+- **Social kit.** With the save endpoint running (`python3 tools/save-endpoint.py`), `await __pixel.kit()` in the browser console renders every scene's demo clip as 16:9 and 1:1 MP4 (3840×2160, 2160×2160) and a hero photo as 4:5 and 1:1 PNG (2160×2700, 2160×2160) into `exports/`. Square and portrait frames use pixel size 3 (6 in the 2× files) with the camera fitted to the diorama.
 - `tools/fmp4-to-mp4.py` rewrites a fragmented MP4 (from Chrome's MediaRecorder or a screen recorder) as a standard one without re-encoding.
 
 ## How it works
