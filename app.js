@@ -30,7 +30,7 @@ const STORE = 'noxe-pixel-engine/v1';
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 // ---------------------------------------------------------------- state
-const app = { scene: 'Cove', stage: '16:9 · 1920×1080', paused: false, timeScale: 1, recordSeconds: 12, sound: false, volume: 0.6, hud: true, cursor: false, panel: true, clipSound: true };
+const app = { scene: 'Alpine', stage: '16:9 · 1920×1080', paused: false, timeScale: 1, recordSeconds: 12, sound: false, volume: 0.6, hud: true, cursor: false, panel: true, clipSound: true };
 const store = { looks: {}, views: {} };
 try {
   const saved = CLEAN ? null : JSON.parse(localStorage.getItem(STORE) || 'null');
@@ -54,10 +54,13 @@ env.onThunder = (delay, power) => audio.thunder(delay, power);
 audio.setVolume(app.volume);
 
 // ---------------------------------------------------------------- stage
+// phones and narrow windows: the stage takes the full width and the panel floats over it, folded
+const narrow = () => window.innerWidth < 900;
 function fitStage() {
   const [w, h] = STAGES[app.stage];
-  const panelW = app.panel && gui ? 300 : 0;
-  const aw = window.innerWidth - panelW - 40, ah = window.innerHeight - 40;
+  const panelW = app.panel && gui && !narrow() ? 300 : 0;
+  const pad = narrow() ? 12 : 40;
+  const aw = window.innerWidth - panelW - pad, ah = window.innerHeight - pad;
   const s = Math.min(aw / w, ah / h);
   stageEl.style.width = `${Math.floor(w * s)}px`;
   stageEl.style.height = `${Math.floor(h * s)}px`;
@@ -480,6 +483,7 @@ function buildGUI() {
   fOut.add(actions, 'copy').name('copy settings');
 
   gui.domElement.style.display = app.panel ? '' : 'none';
+  if (narrow()) gui.close();
   fitStage();
 }
 

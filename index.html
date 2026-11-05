@@ -64,6 +64,8 @@
   .lil-gui.root > .title { font-family:'Nunito', sans-serif; font-weight:800; font-size:13px; letter-spacing:.03em; }
   .lil-gui .title { font-weight:600; }
   .lil-gui.root > .children { max-height:calc(100vh - 70px); overflow-y:auto; }
+  /* phones: the folded panel stays clear of the brand label */
+  @media (max-width: 899px) { .lil-gui.root.closed { width:150px; } }
 </style>
 <script type="importmap">
 { "imports": {

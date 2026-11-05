@@ -2,6 +2,8 @@
 
 Real-time 3D dioramas rendered as pixel art in the browser. Change the time of day and the weather, press a scene's own buttons, and export the result as a 60 fps MP4 with sound.
 
+**[Try the live demo](https://danieljan-design.github.io/noxe-pixel-engine/)**. Best in Chrome or Edge on a computer. Link straight to a scene with `?scene=Name`, for example [Streetcar](https://danieljan-design.github.io/noxe-pixel-engine/?scene=Streetcar).
+
 ![The Alpine scene on a clear afternoon](docs/media/hero.png)
 
 <table>
