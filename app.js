@@ -17,6 +17,17 @@ import Motel from './scenes/motel.js';
 import Alpine from './scenes/alpine.js';
 
 const SCENES = { Streetcar, Studio, Ferry, Campsite, Lookout, Motel, Alpine, Cove };
+// Local-only scenes: scenes/private/ is git-ignored and never published. Its index.js may export
+// { scenes: { Name: def }, clips: { Name: storyboard } }. Only tried on localhost, so the public demo never asks for it.
+let LOCAL = null;
+if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+  try {
+    LOCAL = await import('./scenes/private/index.js');
+    Object.assign(SCENES, LOCAL.scenes || {});
+  } catch (e) {
+    console.info('No local scenes loaded', e?.message || e);
+  }
+}
 const params = new URLSearchParams(location.search);
 // ?scene=Name opens a scene, ?clean=1 ignores and never writes saved settings (for testing)
 const CLEAN = params.has('clean');
@@ -239,6 +250,7 @@ const CLIPS = {
   Alpine: { seconds: 18, start: { hour: 16.9, weather: 'clear' }, events: [{ at: 1.0, kind: 'action', arg: 0 }, { at: 5.2, kind: 'action', arg: 2 }, { at: 11.6, kind: 'action', arg: 1 }, { at: 13.8, kind: 'hour', arg: [21.6, 3.4] }] },
   Cove: { seconds: 16, start: { hour: 17.8, weather: 'clear' }, events: [{ at: 1, kind: 'hour', arg: [21.5, 7] }, { at: 9, kind: 'weather', arg: 'storm' }] },
 };
+if (LOCAL?.clips) Object.assign(CLIPS, LOCAL.clips);
 let exporting = false;
 let take = { active: false, t0: 0, events: [], start: null };
 function logTake(kind, arg) {
